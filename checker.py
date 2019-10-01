@@ -9,23 +9,21 @@ from difflib import unified_diff
 from pathlib import Path
 
 import requests
-from bs4 import BeautifulSoup
 
 CHAT_ID = os.environ['CHAT_ID']
 BOTAPI_BASE_URL = f"https://api.telegram.org/bot{os.environ['BOT_TOKEN']}/"
 
 
-def parse_hockey(hockey_id):
-    ''' returns (version, apk_url) '''
-    url = f'https://rink.hockeyapp.net/apps/{hockey_id}'
-    page = requests.get(url).text
-    soup = BeautifulSoup(page, 'html.parser')
-    version = soup.h3.text.strip()
+def parse_appcenter(appcenter_app_id):
+    """ appcenter_app_id: {owner_name}/{app_name}/distribution_groups/{distribution_group_name} """
+    list_url = f"https://install.appcenter.ms/api/v0.1/apps/{appcenter_app_id}/public_releases?scope=tester"
+    latest = requests.get(list_url).json()[0]
 
-    downloads = soup.findAll('a', {'class': 'btn btn-ha-primary button'})
-    download_url = downloads[0].get('href')
+    release_url = f"https://install.appcenter.ms/api/v0.1/apps/{appcenter_app_id}/releases/{latest['id']}"
+    release_info = requests.get(release_url).json()
 
-    return version, download_url
+    version = f"Version {release_info['short_version']} ({release_info['version']})"
+    return version, release_info['download_url']
 
 
 def main():
@@ -36,7 +34,8 @@ def main():
     except FileNotFoundError:
         current_version = 'unknown'
 
-    new_version, apk_url = parse_hockey(os.environ['HOCKEY_APP_ID'])
+    new_version, apk_url = parse_appcenter(os.environ['APPCENTER_APP_ID'])
+    print(new_version, apk_url)
 
     if new_version == current_version:
         return
